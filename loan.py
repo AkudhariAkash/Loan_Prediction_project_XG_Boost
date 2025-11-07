@@ -86,7 +86,7 @@ template = """
       <div class="col-md-3"><label>Property Area</label><select name="Property_Area" class="form-select"><option>Urban</option><option>Semiurban</option><option>Rural</option></select></div>
       <div class="col-md-3"><label>Applicant Income</label><input type="number" name="ApplicantIncome" value="5000" class="form-control" required></div>
       <div class="col-md-3"><label>Coapplicant Income</label><input type="number" name="CoapplicantIncome" value="2000" class="form-control" required></div>
-      <div class="col-md-3"><label>Loan Amount</label><input type="number" name="LoanAmount" value="150" class="form-control" required></div>
+      <div class="col-md-3"><label>Loan Amount</label><input type="number" name="LoanAmount" value="50000" class="form-control" required></div>
       <div class="col-md-3"><label>Loan Term (Days)</label><input type="number" name="Loan_Amount_Term" value="360" class="form-control" required></div>
       <div class="col-md-3"><label>Credit History (1 = Good)</label><select name="Credit_History" class="form-select"><option value="1">1</option><option value="0">0</option></select></div>
     </div>
@@ -107,7 +107,6 @@ template = """
 </html>
 """
 
-# Flask Routes
 @app.route("/", methods=["GET", "POST"])
 def index():
     result, prob, reason = None, None, None
@@ -155,5 +154,8 @@ def index():
 
     return render_template_string(template, result=result, prob=prob, reason=reason)
 
+# Entry point for both local + Vercel
 if __name__ == "__main__":
     app.run(debug=True)
+else:
+    app = app

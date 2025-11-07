@@ -1,6 +1,6 @@
-Flask
+flask
 pandas
 numpy
+joblib
 scikit-learn
 xgboost
-joblib

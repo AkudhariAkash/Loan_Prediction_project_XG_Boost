@@ -8,13 +8,16 @@ from xgboost import XGBClassifier
 
 app = Flask(__name__)
 
-# Load or train model
+# -------------------- Load or Train Model --------------------
 def load_or_train_model():
     if os.path.exists("loan_prediction_xgboost.pkl") and os.path.exists("label_encoders.pkl"):
+        print("✅ Loaded saved model and encoders.")
         return joblib.load("loan_prediction_xgboost.pkl"), joblib.load("label_encoders.pkl")
 
-    print("🔄 Training model...")
+    print("🔄 Training new model...")
     data = pd.read_csv("loan_data.csv")
+
+    # Fill missing values
     data['Gender'].fillna(data['Gender'].mode()[0], inplace=True)
     data['Married'].fillna(data['Married'].mode()[0], inplace=True)
     data['Dependents'].fillna(data['Dependents'].mode()[0], inplace=True)
@@ -22,10 +25,12 @@ def load_or_train_model():
     data['LoanAmount'].fillna(data['LoanAmount'].mean(), inplace=True)
     data['Loan_Amount_Term'].fillna(data['Loan_Amount_Term'].mode()[0], inplace=True)
     data['Credit_History'].fillna(data['Credit_History'].mode()[0], inplace=True)
+
     if 'Loan_ID' in data.columns:
         data.drop('Loan_ID', axis=1, inplace=True)
 
-    cols = ['Gender','Married','Education','Self_Employed','Property_Area','Loan_Status','Dependents']
+    # Encode categorical columns
+    cols = ['Gender', 'Married', 'Education', 'Self_Employed', 'Property_Area', 'Loan_Status', 'Dependents']
     encoders = {}
     for col in cols:
         le = LabelEncoder()
@@ -35,16 +40,19 @@ def load_or_train_model():
     X = data.drop('Loan_Status', axis=1)
     y = data['Loan_Status']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
     model.fit(X_train, y_train)
+
     joblib.dump(model, "loan_prediction_xgboost.pkl")
     joblib.dump(encoders, "label_encoders.pkl")
     print("✅ Model trained and saved.")
+
     return model, encoders
 
 model, encoders = load_or_train_model()
 
-# HTML Template
+# -------------------- HTML Template --------------------
 template = """
 <!DOCTYPE html>
 <html lang="en">
@@ -107,14 +115,18 @@ template = """
 </html>
 """
 
+# -------------------- Routes --------------------
 @app.route("/", methods=["GET", "POST"])
 def index():
     result, prob, reason = None, None, None
     if request.method == "POST":
         form = request.form
         df = pd.DataFrame([{
-            'Gender': form['Gender'], 'Married': form['Married'], 'Dependents': form['Dependents'],
-            'Education': form['Education'], 'Self_Employed': form['Self_Employed'],
+            'Gender': form['Gender'],
+            'Married': form['Married'],
+            'Dependents': form['Dependents'],
+            'Education': form['Education'],
+            'Self_Employed': form['Self_Employed'],
             'ApplicantIncome': float(form['ApplicantIncome']),
             'CoapplicantIncome': float(form['CoapplicantIncome']),
             'LoanAmount': float(form['LoanAmount']),
@@ -123,15 +135,17 @@ def index():
             'Property_Area': form['Property_Area']
         }])
 
+        # Apply label encoding
         for col, le in encoders.items():
             if col in df.columns:
                 df[col] = le.transform(df[col])
 
+        # Prediction
         pred = model.predict(df)[0]
-        prob = round(model.predict_proba(df)[0][1]*100, 2)
+        prob = round(model.predict_proba(df)[0][1] * 100, 2)
         result = "Approved" if pred == 1 else "Rejected"
 
-        # Reasoning for rejection
+        # Reason for rejection
         if result == "Rejected":
             income = df['ApplicantIncome'].values[0]
             loan_amt = df['LoanAmount'].values[0]
@@ -154,8 +168,6 @@ def index():
 
     return render_template_string(template, result=result, prob=prob, reason=reason)
 
-# Entry point for both local + Vercel
+# -------------------- Run App (Render) --------------------
 if __name__ == "__main__":
-    app.run(debug=True)
-else:
-    app = app
+    app.run(host="0.0.0.0", port=10000)
